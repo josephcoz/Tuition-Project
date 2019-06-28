@@ -1,0 +1,13 @@
+name: tuition_proj
+title:
+username:
+account: josephcoz
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 988618
+bundleId: 2180054
+url: https://josephcoz.shinyapps.io/tuition_proj/
+when: 1561560602.3941
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: www/disable/instate.js|www/disable/instaterb.js|www/disable/outofstate.js|www/disable/outofstaterb.js
