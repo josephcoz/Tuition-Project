@@ -106,11 +106,7 @@ server <- function(input, output, session) {
       })
       
     }, error = function(e) {
-      # 
-      # output$initial <- renderUI({
-      #   renderText({"Please select a school to see its plot"})
-      # })
-      
+      print("something went wrong")
     })
     
     if (input$schoolname != "") {
