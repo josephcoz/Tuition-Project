@@ -1,9 +1,11 @@
 library(shiny)
 library(jsonlite)
 library(shinyjs)
-library(ggplot2)
 library(reshape2)
 library(plotly)
+library(forecast)
+library(tseries)
+library(shinyWidgets)
 
 useShinyjs()
 
@@ -27,9 +29,16 @@ server <- function(input, output, session) {
       
       # construct path to data source for selected school
       schooldatapath <- paste0("./data/",input$schoolname, ".json")
-    
+      
       # use jsonlite to read json data in path
       schooldata <<- fromJSON(schooldatapath)
+      
+    }, error = function(e) {
+      print("something went wrong")
+    })
+    
+    # if the schooldata object exists, move on
+    if (exists("schooldata")) {
       
       # convert to numeric since all are str in json
       schooldata$tuition_and_fees_in_state <- as.numeric(schooldata$tuition_and_fees_in_state)
@@ -71,65 +80,71 @@ server <- function(input, output, session) {
                       "tuition_fees_room_and_board_in_state" = "In State + Room and Board",
                       "tuition_fees_room_and_board_out_of_state" = "Out of State + Room and Board")
       } 
-      
+    }
       # output school data in plot when school is selected
-      output$schoolplot <- renderPlotly({
+      if (input$schoolname != "") {
+      
+        output$schoolplot <- renderPlotly({
         if (!is.null(schooldata$tuition)) {
           if (!is.null(schooldata$tuition_room_and_board)) {
             p <- plot_ly(schooldata, x = ~year_pub) %>%
               add_trace(y = ~tuition, name = "Tuition", type = "scatter", mode = "lines+markers") %>%
               add_trace(y = ~tuition_room_and_board, name = "Tuition + Room & Board", type = "scatter", mode = "lines+markers") %>%
               add_trace(y = ~room_and_board, name = "Room and Board", type = "scatter", mode = "lines+markers") %>%
-              layout(legend = list(x = 0.05, y = 0.95)) %>%
-              layout(xaxis = list(title = "Years"), yaxis = list(title = "Cost"))
+              layout(xaxis = list(title = "Years"), yaxis = list(title = "Cost"), legend = list(orientation = 'h',
+                                                                                                xanchor = "left",
+                                                                                                y = -0.25))
             print(p)
-          } else {
+            
+            
+        } else {
             p <- plot_ly(schooldata, x = ~year_pub) %>%
               add_trace(y = ~tuition, name = "Tuition", type = "scatter", mode = "lines+markers") %>%
-              layout(legend = list(x = 0.05, y = 0.95)) %>%
-              layout(xaxis = list(title = "Years"), yaxis = list(title = "Cost"))
+              layout(xaxis = list(title = "Years"), yaxis = list(title = "Cost"), legend = list(orientation = 'h',
+                                                                                                xanchor = "left",
+                                                                                                y = -0.25))
             print(p)
           } 
         } else {
-          
           p <- plot_ly(schooldata, x = ~year_pub) %>%
             add_trace(y = ~tuition_and_fees_in_state, name = "In State", type = "scatter", mode = "lines+markers") %>%
             add_trace(y = ~tuition_and_fees_out_of_state, name = "Out of State", type = "scatter", mode = "lines+markers") %>%
             add_trace(y = ~tuition_fees_room_and_board_in_state, name = "In State + Room and Board", type = "scatter", mode = "lines+markers") %>%
             add_trace(y = ~tuition_fees_room_and_board_out_of_state, name = "Out of State + Room and Board", type = "scatter", mode = "lines+markers") %>%
             add_trace(y = ~room_and_board, name = "Room and Board", type = "scatter", mode = "lines+markers") %>%
-            layout(legend = list(x = 0.05, y = 0.95)) %>%
-            layout(xaxis = list(title = "Years"), yaxis = list(title = "Cost"))
+            layout(xaxis = list(title = "Years"), yaxis = list(title = "Cost"), legend = list(orientation = 'h',
+                                                                                              xanchor = "left",
+                                                                                              y = -0.25))
           print(p)
         }
-        
-      })
       
-    }, error = function(e) {
-      print("something went wrong")
-    })
-    
-    if (input$schoolname != "") {
-      output$toggletable <- renderUI({actionButton("toggletable", "Show Table")})
-    } 
-    
+        })
+      
+      output$toggletable <- renderUI({materialSwitch("schooltable", "Table", status = "primary")})
+      
+      }
+
   })
   
-  observeEvent(input$toggletable, {
-    output$toggletable <- renderUI({actionButton("hidetable", "Hide Table")})
-    colnames(schooldata) <- namelist
-    print(namelist)
-    print(schooldata)
-    output$table <- DT::renderDataTable(DT::datatable(schooldata, options = list(lengthMenu = c(5, 10, 25), 
-                                                                                pageLength = 25,
-                                                                                autoWidth = TRUE,
-                                                                                columnDefs = list(list(width = '600px', targets = c(1:length(namelist))))
-                                                                                )))
+  observeEvent(input$schooltable, {
+    # output$toggletable <- renderUI({actionButton("hidetable", "Hide Table")})
+    if (input$schooltable) {
+      colnames(schooldata) <- namelist
+      print(namelist)
+      print(schooldata)
+      output$table <- DT::renderDataTable(DT::datatable(schooldata, options = list(lengthMenu = c(5, 10, 25), 
+                                                                                  pageLength = 25,
+                                                                                  autoWidth = TRUE,
+                                                                                  columnDefs = list(list(width = '600px', targets = c(1:length(namelist))))
+                                                                                  )))
+    } else {
+      output$table <- NULL
+    }
   })
   
-  observeEvent(input$hidetable, {
-    output$toggletable <- renderUI({actionButton("toggletable", "Show Table")})
-    output$table <- NULL
-  })
+  # observeEvent(input$hidetable, {
+  #   output$toggletable <- renderUI({actionButton("toggletable", "Show Table")})
+  #   output$table <- NULL
+  # })
   
 }

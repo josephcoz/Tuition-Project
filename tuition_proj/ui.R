@@ -1,10 +1,10 @@
 # ui.R
 
 # still not clear if these only need to be in server.R file...
-# library(shiny)
-# library(jsonlite)
+library(shiny)
+library(jsonlite)
 library(shinyjs)
-library(ggplot2)
+library(plotly)
 
 # read data into vector (not dataframe, as is traditional)
 schools <- scan(file = "./schools.csv", what = character(), sep=",")
@@ -16,9 +16,11 @@ ui <- fluidPage(
   selectInput('schoolname', 'School', c(Choose='', schools), selectize=TRUE),
 
   
-  plotOutput("schoolplot", width = "100%"),
-  uiOutput("choices", inline = TRUE)
-  
+  plotlyOutput("schoolplot", width = "80%"),
+  uiOutput("toggletable", inline = TRUE),
+  br(),
+  br(),
+  DT::dataTableOutput("table", width = "80%")
   
 )
 
