@@ -17,7 +17,10 @@ ui <- fluidPage(
 
   
   plotlyOutput("schoolplot", width = "80%"),
-  uiOutput("toggletable", inline = TRUE),
+  fluidRow(
+    column(2, uiOutput("toggleforecast", inline = TRUE)),
+    column(2, uiOutput("toggletable", inline = TRUE))
+  ),
   br(),
   br(),
   DT::dataTableOutput("table", width = "80%")

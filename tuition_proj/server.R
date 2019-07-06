@@ -9,6 +9,23 @@ library(shinyWidgets)
 
 useShinyjs()
 
+# forecast function
+createforecastdf <- function(var, latestyear = 2018, numyears = 5) {
+  model <- auto.arima(var)
+  # summary(model)
+  
+  pred <- forecast(model, numyears)
+  predvals <- as.numeric(pred$mean)
+  predll80 <- as.numeric(pred$lower[,1])
+  predul80 <- as.numeric(pred$upper[,1])
+  predll95 <- as.numeric(pred$lower[,2])
+  predul95 <- as.numeric(pred$upper[,2])
+  
+  predyears <- (latestyear + 1):(latestyear + numyears)
+  preddf <- as.data.frame(cbind(predyears, predvals, predll80, predul80, predll95, predul95))
+  return(preddf)
+}
+
 server <- function(input, output, session) {
   
   # maintain school search box
@@ -38,7 +55,7 @@ server <- function(input, output, session) {
     })
     
     # if the schooldata object exists, move on
-    if (exists("schooldata")) {
+    if (exists("schooldata") & (input$schoolname != "")) {
       
       # convert to numeric since all are str in json
       schooldata$tuition_and_fees_in_state <- as.numeric(schooldata$tuition_and_fees_in_state)
@@ -84,7 +101,6 @@ server <- function(input, output, session) {
       # output school data in plot when school is selected
       if (input$schoolname != "") {
       
-        output$schoolplot <- renderPlotly({
         if (!is.null(schooldata$tuition)) {
           if (!is.null(schooldata$tuition_room_and_board)) {
             p <- plot_ly(schooldata, x = ~year_pub) %>%
@@ -94,8 +110,28 @@ server <- function(input, output, session) {
               layout(xaxis = list(title = "Years"), yaxis = list(title = "Cost"), legend = list(orientation = 'h',
                                                                                                 xanchor = "left",
                                                                                                 y = -0.25))
-            print(p)
+            # this variable will be the same across all forecasts
+            lastyear <- max(schooldata$year_pub)
             
+            # use forecast function to create forecast dfs
+            tuitdf <- createforecastdf(schooldata$tuition, latestyear = lastyear)
+            # FIX: ROOM AND BOARD HAS NAs, WON'T WORK RIGHT NOW
+            # rbdf <- createforecastdf(schooldata$room_and_board, lastyear)
+            
+            # construct forecast plot
+            q <- p %>%
+              add_ribbons(x = tuitdf$predyears, ymin = tuitdf$predll80, ymax = tuitdf$predul80, 
+                          color = I("gray80"), legendgroup = "isf", showlegend = FALSE) %>%
+              add_ribbons(x = tuitdf$predyears, ymin = tuitdf$predll95, ymax = tuitdf$predul95, 
+                          color = I("gray95"), legendgroup = "isf", showlegend = FALSE) %>%
+              add_trace(x = tuitdf$predyears, y = tuitdf$predvals, name = "Tuition Forecast", type = "scatter", 
+                        mode = "lines+markers", line = list(dash = "dash"), legendgroup = "isf") #%>%
+              # add_ribbons(rbdf, x = ~predyears, ymin = ~predll80, ymax = ~predul80, color = I("gray80"), 
+              #             legendgroup = "isf", showlegend = FALSE) %>%
+              # add_ribbons(rbdf, x = ~predyears, ymin = ~predll95, ymax = ~predul95, color = I("gray95"),
+              #             legendgroup = "isf", showlegend = FALSE) %>%
+              # add_trace(rbdf, x = ~predyears, y = ~predvals, name = "Room & Board Forecast", type = "scatter", 
+              #           mode = "lines+markers", line = list(dash = "dash"), legendgroup = "isf")
             
         } else {
             p <- plot_ly(schooldata, x = ~year_pub) %>%
@@ -103,7 +139,22 @@ server <- function(input, output, session) {
               layout(xaxis = list(title = "Years"), yaxis = list(title = "Cost"), legend = list(orientation = 'h',
                                                                                                 xanchor = "left",
                                                                                                 y = -0.25))
-            print(p)
+            # this variable will be the same across all forecasts
+            lastyear <- max(schooldata$year_pub)
+            
+            # use forecast function to create forecast df
+            tuitdf <- createforecastdf(schooldata$tuition, latestyear = lastyear)
+            print(tuitdf)
+            
+            # construct forecast plot
+            q <- p %>%
+              add_ribbons(x = tuitdf$predyears, ymin = tuitdf$predll80, ymax = tuitdf$predul80, 
+                          color = I("gray80"), legendgroup = "isf", showlegend = FALSE) %>%
+              add_ribbons(x = tuitdf$predyears, ymin = tuitdf$predll95, ymax = tuitdf$predul95, 
+                          color = I("gray95"), legendgroup = "isf", showlegend = FALSE) %>%
+              add_trace(x = tuitdf$predyears, y = tuitdf$predvals, name = "Tuition Forecast", type = "scatter", 
+                        mode = "lines+markers", line = list(dash = "dash"), legendgroup = "isf")
+            
           } 
         } else {
           p <- plot_ly(schooldata, x = ~year_pub) %>%
@@ -115,23 +166,64 @@ server <- function(input, output, session) {
             layout(xaxis = list(title = "Years"), yaxis = list(title = "Cost"), legend = list(orientation = 'h',
                                                                                               xanchor = "left",
                                                                                               y = -0.25))
-          print(p)
+          # this variable will be the same across all forecasts
+          lastyear <- max(schooldata$year_pub)
+          
+          # use forecast function to create forecast dfs
+          tuitisdf <- createforecastdf(schooldata$tuition_and_fees_in_state, latestyear = lastyear)
+          tuitoosdf <- createforecastdf(schooldata$tuition_and_fees_out_of_state, latestyear = lastyear)
+          # FIX: ROOM AND BOARD HAS NAs, WON'T WORK RIGHT NOW
+          # rbdf <- createforecastdf(schooldata$room_and_board, lastyear)
+          
+          # construct forecast plot
+          q <- p %>%
+            add_ribbons(x = tuitisdf$predyears, ymin = tuitisdf$predll80, ymax = tuitisdf$predul80, 
+                        color = I("gray80"), legendgroup = "isf", showlegend = FALSE) %>%
+            add_ribbons(x = tuitisdf$predyears, ymin = tuitisdf$predll95, ymax = tuitisdf$predul95, 
+                        color = I("gray95"), legendgroup = "isf", showlegend = FALSE) %>%
+            add_trace(x = tuitisdf$predyears, y = tuitisdf$predvals, name = "Tuition Forecast", type = "scatter", 
+                      mode = "lines+markers", line = list(dash = "dash"), legendgroup = "isf") %>%
+            add_ribbons(x = tuitoosdf$predyears, ymin = tuitoosdf$predll80, ymax = tuitoosdf$predul80, 
+                        color = I("gray80"), legendgroup = "isf", showlegend = FALSE) %>%
+            add_ribbons(x = tuitoosdf$predyears, ymin = tuitoosdf$predll95, ymax = tuitoosdf$predul95, 
+                        color = I("gray95"), legendgroup = "isf", showlegend = FALSE) %>%
+            add_trace(x = tuitoosdf$predyears, y = tuitoosdf$predvals, name = "Tuition Forecast", type = "scatter", 
+                      mode = "lines+markers", line = list(dash = "dash"), legendgroup = "isf") #%>%
+            # add_ribbons(rbdf, x = ~predyears, ymin = ~predll80, ymax = ~predul80, color = I("gray80"), 
+            #             legendgroup = "isf", showlegend = FALSE) %>%
+            # add_ribbons(rbdf, x = ~predyears, ymin = ~predll95, ymax = ~predul95, color = I("gray95"),
+            #             legendgroup = "isf", showlegend = FALSE) %>%
+            # add_trace(rbdf, x = ~predyears, y = ~predvals, name = "Room & Board Forecast", type = "scatter", 
+            #           mode = "lines+markers", line = list(dash = "dash"), legendgroup = "isf")
         }
       
-        })
+      output$toggleforecast <- renderUI({materialSwitch("schoolforecast", "Forecast", value = FALSE, status = "success")})
+      output$toggletable <- renderUI({materialSwitch("schooltable", "Table", value = FALSE, status = "primary")})
       
-      output$toggletable <- renderUI({materialSwitch("schooltable", "Table", status = "primary")})
+      print(input$schoolforecast)
       
+      observeEvent(input$schoolforecast, {
+        if (!is.null(input$schoolforecast)) {
+          if (input$schoolforecast) {
+            output$schoolplot <- renderPlotly({q}) 
+          } else {
+            output$schoolplot <- renderPlotly({p})  
+          }
+        } else {
+          output$schoolplot <- renderPlotly({p})
+        }
+      })
+      # end if statement where schoolname != ""
       }
-
+  # end reactive when school is selected
   })
   
   observeEvent(input$schooltable, {
     # output$toggletable <- renderUI({actionButton("hidetable", "Hide Table")})
     if (input$schooltable) {
       colnames(schooldata) <- namelist
-      print(namelist)
-      print(schooldata)
+      # print(namelist)
+      # print(schooldata)
       output$table <- DT::renderDataTable(DT::datatable(schooldata, options = list(lengthMenu = c(5, 10, 25), 
                                                                                   pageLength = 25,
                                                                                   autoWidth = TRUE,
@@ -146,5 +238,5 @@ server <- function(input, output, session) {
   #   output$toggletable <- renderUI({actionButton("toggletable", "Show Table")})
   #   output$table <- NULL
   # })
-  
+
 }
